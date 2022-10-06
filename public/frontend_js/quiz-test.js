@@ -641,164 +641,198 @@ function calculateAge(year) {
   return age;
 } // function calculateAge ends here
 
+
+const setAsyncTimeout = (cb, timeout = 0) => new Promise(resolve => {
+  setTimeout(() => {
+    cb();
+    resolve();
+  }, timeout);
+});
+
 // function to call all the questions
 async function nextQuestion(goBack, goBackFromResponse, fromDependedOn) {
-  clearTimeout(timeout);
-  clearTimeout(closeResponseTimeout);
-  if (goBack) {
-    let stepBack = uniqueQuestionsShowed.length - 2 < 0 ? 0 : uniqueQuestionsShowed.length - 2;
-    let backQuizId = uniqueQuestionsShowed[stepBack].quiz;
-    if (stepBack !== 0) {
-      uniqueQuestionsShowed.pop();
-    }
-    currentQuizIndex = backQuizId - 1;
-    totalQuizQuestions = allItems[currentQuizIndex].questions;
-    currentQuestionCounter = uniqueQuestionsShowed[stepBack].counter;
+  setAsyncTimeout(nextQuestion, closeResponseTimeoutCounter);
+  // await sleep(500)
+  // async () => {
+  //   setTimeout(()=> {
+  //
+  //   }, closeResponseTimeoutCounter);
+  // }
+  //
+  // await new Promise(resolve => {
+  //   setTimeout(()=>{
+  //     alert("gg")
+  //   }, closeResponseTimeoutCounter)
+  // })
 
-    progress = uniqueQuestionsShowed[stepBack].progress;
-    if (progress < 0) progress = 0;
+  // clearTimeout(timeout);
+  // clearTimeout(closeResponseTimeout);
+    if (goBack) {
+      let stepBack = uniqueQuestionsShowed.length - 2 < 0 ? 0 : uniqueQuestionsShowed.length - 2;
+      let backQuizId = uniqueQuestionsShowed[stepBack].quiz;
+      if (stepBack !== 0) {
+        uniqueQuestionsShowed.pop();
+      }
+      currentQuizIndex = backQuizId - 1;
+      totalQuizQuestions = allItems[currentQuizIndex].questions;
+      currentQuestionCounter = uniqueQuestionsShowed[stepBack].counter;
+
+      progress = uniqueQuestionsShowed[stepBack].progress;
+      if (progress < 0) progress = 0;
+      $("#myBar").css("width", progress + "%");
+
+      var divsToHide = document.getElementsByClassName("answerRow");
+      for (let i = 0; i < divsToHide.length; i++) {
+        divsToHide[i].style.display = "none";
+      }
+      $("#questionRow").css("display", "none");
+      let dependedOnQuestions = totalQuizQuestions.filter(function (qs) {
+        return qs.depends_on && parseInt(qs.depends_on.split("|")[0]) == totalQuizQuestions[currentQuestionCounter].id;
+      });
+      if (dependedOnQuestions.length > 0) {
+        dependedOnQuestions.forEach((dq) => {
+          dataToReturn = dataToReturn.filter((answerObj) => {
+            return answerObj.question.id != dq.id;
+          });
+        });
+        localStorage.setItem("answers", JSON.stringify(dataToReturn));
+      }
+      if (goBackFromResponse) {
+        $("#page5").css("display", "none");
+        $("#page4").css("display", "none");
+        $("#page3").css("display", "block");
+      }
+      return await askQuestion(totalQuizQuestions, currentQuestionCounter, true);
+    }
+
+    increase = (1 / totalQuizQuestions.length) * 100;
+    if (isNaN(increase) || increase == Infinity) increase = 0;
+    else increase = increase * (1 / 3);
+    progress = progress + increase;
     $("#myBar").css("width", progress + "%");
 
-    var divsToHide = document.getElementsByClassName("answerRow");
-    for (let i = 0; i < divsToHide.length; i++) {
-      divsToHide[i].style.display = "none";
+    timerStart = true; // allowing the timer to work for questions
+    nextBtnClicked = false; // resetting next button is clicked to not  clicked
+
+    //first get the answer of previous question and store it.
+    if (currentActiveAnswerType && !isSkipStoreAnswer) {
+      await storeAnswer(totalQuizQuestions[currentQuestionCounter - 1], currentActiveAnswerType);
     }
-    $("#questionRow").css("display", "none");
-    let dependedOnQuestions = totalQuizQuestions.filter(function (qs) {
-      return qs.depends_on && parseInt(qs.depends_on.split("|")[0]) == totalQuizQuestions[currentQuestionCounter].id;
-    });
-    if (dependedOnQuestions.length > 0) {
-      dependedOnQuestions.forEach((dq) => {
-        dataToReturn = dataToReturn.filter((answerObj) => {
-          return answerObj.question.id != dq.id;
+
+    weights = {};
+    sliderAns = "";
+    sliderBLActives = [];
+    tempMcqAns = "";
+    tempMcqAnsValue = 0;
+    tempMcqiBLActives = [];
+    tempMcqiAns = "";
+    tempMcqiAnsValue = 0;
+    tempMcqBLActives = [];
+    minRangeVal = null;
+    maxRangeVal = null;
+    responseOnGoing = false;
+    hasNoResponse = true;
+
+    // displaying user's name on top  *this will be executed only once*
+    if (dataToReturn[0] != null && !isExecuted) {
+      isExecuted = true;
+      var tempName = dataToReturn[0].answer;
+      tempName = tempName.split(" ")[0]; //get first name only
+      tempName = tempName.toUpperCase();
+      $("#page3 .container .row .createdByDiv").html("");
+      $("#page3 .container .row .createdByDiv").append(`
+          Created By ${tempName}
+      `);
+      $("#page4 .container .row .createdByDiv").html("");
+      $("#page4 .container .row .createdByDiv").append(`
+          Created By ${tempName}
+      `);
+      $("#page5 .container .row .createdByDiv").html("");
+      $("#page5 .container .row .createdByDiv").append(`
+          Created By ${tempName}
+      `);
+    } //displaying user name on top ends here
+
+    // first getting the first quiz
+    totalQuizQuestions = allItems[currentQuizIndex].questions;
+
+    // checking if there is any resp  onse in question or answer
+    if (currentQuestionCounter != 0) {
+      apiQues = totalQuizQuestions.find((ques) => ques.id == lastShowedQuestionId);
+      let lastAnswerObject = dataToReturn.find(function (ansObj) {
+        return ansObj.question.id == apiQues?.id;
+      });
+
+      if (lastAnswerObject && !fromDependedOn) {
+        var fullAnswerObject = apiQues.answers.find(function (cAns) {
+          return cAns.answer == lastAnswerObject.answer;
         });
-      });
-      localStorage.setItem("answers", JSON.stringify(dataToReturn));
-    }
-    if (goBackFromResponse) {
-      $("#page5").css("display", "none");
-      $("#page4").css("display", "none");
-      $("#page3").css("display", "block");
-    }
-    return await askQuestion(totalQuizQuestions, currentQuestionCounter, true);
-  }
+        // quesResponse = apiQues.response;
 
-  increase = (1 / totalQuizQuestions.length) * 100;
-  if (isNaN(increase) || increase == Infinity) increase = 0;
-  else increase = increase * (1 / 3);
-  progress = progress + increase;
-  $("#myBar").css("width", progress + "%");
-
-  timerStart = true; // allowing the timer to work for questions
-  nextBtnClicked = false; // resetting next button is clicked to not  clicked
-
-  //first get the answer of previous question and store it.
-  if (currentActiveAnswerType && !isSkipStoreAnswer) {
-    await storeAnswer(totalQuizQuestions[currentQuestionCounter - 1], currentActiveAnswerType);
-  }
-
-  weights = {};
-  sliderAns = "";
-  sliderBLActives = [];
-  tempMcqAns = "";
-  tempMcqAnsValue = 0;
-  tempMcqiBLActives = [];
-  tempMcqiAns = "";
-  tempMcqiAnsValue = 0;
-  tempMcqBLActives = [];
-  minRangeVal = null;
-  maxRangeVal = null;
-  responseOnGoing = false;
-  hasNoResponse = true;
-
-  // displaying user's name on top  *this will be executed only once*
-  if (dataToReturn[0] != null && !isExecuted) {
-    isExecuted = true;
-    var tempName = dataToReturn[0].answer;
-    tempName = tempName.split(" ")[0]; //get first name only
-    tempName = tempName.toUpperCase();
-    $("#page3 .container .row .createdByDiv").html("");
-    $("#page3 .container .row .createdByDiv").append(`
-          Created By ${tempName}
-      `);
-    $("#page4 .container .row .createdByDiv").html("");
-    $("#page4 .container .row .createdByDiv").append(`
-          Created By ${tempName}
-      `);
-    $("#page5 .container .row .createdByDiv").html("");
-    $("#page5 .container .row .createdByDiv").append(`
-          Created By ${tempName}
-      `);
-  } //displaying user name on top ends here
-
-  // first getting the first quiz
-  totalQuizQuestions = allItems[currentQuizIndex].questions;
-
-  // checking if there is any resp  onse in question or answer
-  if (currentQuestionCounter != 0) {
-    apiQues = totalQuizQuestions.find((ques) => ques.id == lastShowedQuestionId);
-    let lastAnswerObject = dataToReturn.find(function (ansObj) {
-      return ansObj.question.id == apiQues?.id;
-    });
-
-    if (lastAnswerObject && !fromDependedOn) {
-      var fullAnswerObject = apiQues.answers.find(function (cAns) {
-        return cAns.answer == lastAnswerObject.answer;
-      });
-      // quesResponse = apiQues.response;
-
-      //when there is response with the question
-      if (apiQues.id == 14) {
-        //save progress if there is answer
-        if (lastAnswerObject.answer) {
-          //ajax save contact
-          // const email = lastAnswerObject.answer;
-          // let fullName = localStorage.getItem("name");
-          // let firstName, lastName;
-          // if (fullName && fullName !== "You") firstName = fullName.split(" ")[0];
-          // if (fullName && fullName !== "You" && fullName.split(" ").length > 1) lastName = fullName.split(" ")[fullName.split(" ").length - 1];
-          //   try {
-          //     const newProfile = await fetch(url_preset + "/klaviyo/identity", {
-          //       method: "POST",
-          //       headers: {
-          //         "content-type": "application/json",
-          //       },
-          //       body: JSON.stringify({ email, firstName, lastName }),
-          //     }).then((res) => res.json());
-          //     const addedToList = await fetch(url_preset + "/klaviyo/list", {
-          //       method: "POST",
-          //       headers: {
-          //         "content-type": "application/json",
-          //       },
-          //       body: JSON.stringify({ email }),
-          //     }).then((res) => res.json());
-          //     console.log(newProfile);
-          //     console.log(addedToList);
-          //   } catch (error) {
-          //     console.error(error);
-          //   }
-        }
-      }
-      if (apiQues.id == 20 && apiQues.type == 7) {
-        if (Array.isArray(lastAnswerObject.answer)) {
-          if (lastAnswerObject.answer.length == 1) {
-            showResponse(null, "We’ll make sure to leave this one out");
-          } else if (lastAnswerObject.answer.length > 1) {
-            showResponse(null, "We’ll make sure to leave those out");
+        //when there is response with the question
+        if (apiQues.id == 14) {
+          //save progress if there is answer
+          if (lastAnswerObject.answer) {
+            //ajax save contact
+            // const email = lastAnswerObject.answer;
+            // let fullName = localStorage.getItem("name");
+            // let firstName, lastName;
+            // if (fullName && fullName !== "You") firstName = fullName.split(" ")[0];
+            // if (fullName && fullName !== "You" && fullName.split(" ").length > 1) lastName = fullName.split(" ")[fullName.split(" ").length - 1];
+            //   try {
+            //     const newProfile = await fetch(url_preset + "/klaviyo/identity", {
+            //       method: "POST",
+            //       headers: {
+            //         "content-type": "application/json",
+            //       },
+            //       body: JSON.stringify({ email, firstName, lastName }),
+            //     }).then((res) => res.json());
+            //     const addedToList = await fetch(url_preset + "/klaviyo/list", {
+            //       method: "POST",
+            //       headers: {
+            //         "content-type": "application/json",
+            //       },
+            //       body: JSON.stringify({ email }),
+            //     }).then((res) => res.json());
+            //     console.log(newProfile);
+            //     console.log(addedToList);
+            //   } catch (error) {
+            //     console.error(error);
+            //   }
           }
         }
-      } else if (apiQues.type == 1 && apiQues.id == 1) {
-        if (apiQues.answers.length > 0 && apiQues.answers[0].response_header) {
-          responseHeader = apiQues.answers[0].response_header;
-          var responseArguments = apiQues.answers[0].response_arguments;
-          responseArguments = JSON.parse(responseArguments);
+        if (apiQues.id == 20 && apiQues.type == 7) {
+          if (Array.isArray(lastAnswerObject.answer)) {
+            if (lastAnswerObject.answer.length == 1) {
+              showResponse(null, "We’ll make sure to leave this one out");
+            } else if (lastAnswerObject.answer.length > 1) {
+              showResponse(null, "We’ll make sure to leave those out");
+            }
+          }
+        } else if (apiQues.type == 1 && apiQues.id == 1) {
+          if (apiQues.answers.length > 0 && apiQues.answers[0].response_header) {
+            responseHeader = apiQues.answers[0].response_header;
+            var responseArguments = apiQues.answers[0].response_arguments;
+            responseArguments = JSON.parse(responseArguments);
 
-          var replaceWith = localStorage.getItem(responseArguments[0]);
-          if (replaceWith) {
-            replaceWith = replaceWith.toUpperCase();
-            responseHeader = inject_substitute(responseHeader, "name", replaceWith);
-            responseHeader = responseHeader.split(" ")[0];
+            var replaceWith = localStorage.getItem(responseArguments[0]);
+            if (replaceWith) {
+              replaceWith = replaceWith.toUpperCase();
+              responseHeader = inject_substitute(responseHeader, "name", replaceWith);
+              responseHeader = responseHeader.split(" ")[0];
 
+              $("#page3").css("display", "none");
+              $("#page4").css("display", "block");
+              $("#page4 .customImgRow .imgRowInner p").html("");
+              $("#page4 .customImgRow .imgRowInner p").css("display", "block");
+              $("#page4 .customImgRow .imgRowInner p").append(`${responseHeader}`);
+              responseOnGoing = true;
+              hasNoResponse = false;
+              // closeResponseTimeout = setTimeout(async () => {
+              //   closeResponse();
+              // }, closeResponseTimeoutCounter);
+            }
+          } else if (apiQues.answers && apiQues.answers[0].responseBody) {
             $("#page3").css("display", "none");
             $("#page4").css("display", "block");
             $("#page4 .customImgRow .imgRowInner p").html("");
@@ -806,79 +840,68 @@ async function nextQuestion(goBack, goBackFromResponse, fromDependedOn) {
             $("#page4 .customImgRow .imgRowInner p").append(`${responseHeader}`);
             responseOnGoing = true;
             hasNoResponse = false;
-            // closeResponseTimeout = setTimeout(async () => {
-            //   closeResponse();
-            // }, closeResponseTimeoutCounter);
+            closeResponseTimeout = setTimeout(async () => {
+              closeResponse();
+            }, closeResponseTimeoutCounter);
           }
-        } else if (apiQues.answers && apiQues.answers[0].responseBody) {
-          $("#page3").css("display", "none");
-          $("#page4").css("display", "block");
-          $("#page4 .customImgRow .imgRowInner p").html("");
-          $("#page4 .customImgRow .imgRowInner p").css("display", "block");
-          $("#page4 .customImgRow .imgRowInner p").append(`${responseHeader}`);
-          responseOnGoing = true;
-          hasNoResponse = false;
-          closeResponseTimeout = setTimeout(async () => {
-            closeResponse();
-          }, closeResponseTimeoutCounter);
-        }
-      } else if (apiQues.type == 3 && apiQues.id == 2 && age) {
-        if (age < 25) age = "<25";
-        else if (age >= 25 && age <= 40) age = "25-40";
-        else if (age > 40) age = ">40";
-        let correctAgeAnswer = apiQues.answers.find(function (cAns) {
-          return cAns.answer == age;
-        });
-        if (correctAgeAnswer) {
-          responseHeader = correctAgeAnswer.response_header;
-          responseBody = correctAgeAnswer.response_body;
-          showResponse(responseHeader, responseBody);
-        }
-      } else if ([4, 5, 6].includes(apiQues.type)) {
-        if (fullAnswerObject && (fullAnswerObject.response_header || fullAnswerObject.response_body)) {
-          if (fullAnswerObject.response_arguments) {
-            responseHeader = fullAnswerObject.response_header;
-            var responseArguments = fullAnswerObject.response_arguments;
-            responseArguments = JSON.parse(responseArguments);
-            var replaceWith = localStorage.getItem(responseArguments[0]);
-            replaceWith = replaceWith.toUpperCase();
-            responseHeader = inject_substitute(responseHeader, "name", replaceWith);
-            responseBody = fullAnswerObject.response_body;
-          } else {
-            responseHeader = fullAnswerObject.response_header;
-            responseBody = fullAnswerObject.response_body;
+        } else if (apiQues.type == 3 && apiQues.id == 2 && age) {
+          if (age < 25) age = "<25";
+          else if (age >= 25 && age <= 40) age = "25-40";
+          else if (age > 40) age = ">40";
+          let correctAgeAnswer = apiQues.answers.find(function (cAns) {
+            return cAns.answer == age;
+          });
+          if (correctAgeAnswer) {
+            responseHeader = correctAgeAnswer.response_header;
+            responseBody = correctAgeAnswer.response_body;
+            showResponse(responseHeader, responseBody);
           }
-          showResponse(responseHeader, responseBody);
+        } else if ([4, 5, 6].includes(apiQues.type)) {
+          if (fullAnswerObject && (fullAnswerObject.response_header || fullAnswerObject.response_body)) {
+            if (fullAnswerObject.response_arguments) {
+              responseHeader = fullAnswerObject.response_header;
+              var responseArguments = fullAnswerObject.response_arguments;
+              responseArguments = JSON.parse(responseArguments);
+              var replaceWith = localStorage.getItem(responseArguments[0]);
+              replaceWith = replaceWith.toUpperCase();
+              responseHeader = inject_substitute(responseHeader, "name", replaceWith);
+              responseBody = fullAnswerObject.response_body;
+            } else {
+              responseHeader = fullAnswerObject.response_header;
+              responseBody = fullAnswerObject.response_body;
+            }
+            showResponse(responseHeader, responseBody);
+          }
+        } else if (apiQues.type == 8) {
+          showResponse(false, false, true);
         }
-      } else if (apiQues.type == 8) {
-        showResponse(false, false, true);
       }
     }
-  }
 
-  // hide all answers row
-  var divsToHide = document.getElementsByClassName("answerRow"); //divsToHide is an array
-  for (var i = 0; i < divsToHide.length; i++) {
-    divsToHide[i].style.display = "none"; // depending on what you're doing
-  }
+    // hide all answers row
+    var divsToHide = document.getElementsByClassName("answerRow"); //divsToHide is an array
+    for (var i = 0; i < divsToHide.length; i++) {
+      divsToHide[i].style.display = "none"; // depending on what you're doing
+    }
 
-  //hide question row
-  $("#questionRow").css("display", "none");
+    //hide question row
+    $("#questionRow").css("display", "none");
 
-  if (hasNoResponse) {
-    if (currentQuestionCounter < totalQuizQuestions.length) {
-      return askQuestion(totalQuizQuestions, currentQuestionCounter);
-    } else {
-      if (currentQuizIndex + 1 < allItems.length) {
-        currentQuizIndex++;
-        currentQuestionCounter = 0;
-        totalQuizQuestions = allItems[currentQuizIndex].questions;
-        showQuizTitle();
+    if (hasNoResponse) {
+      if (currentQuestionCounter < totalQuizQuestions.length) {
         return askQuestion(totalQuizQuestions, currentQuestionCounter);
       } else {
-        return showPreparingPage();
+        if (currentQuizIndex + 1 < allItems.length) {
+          currentQuizIndex++;
+          currentQuestionCounter = 0;
+          totalQuizQuestions = allItems[currentQuizIndex].questions;
+          showQuizTitle();
+          return askQuestion(totalQuizQuestions, currentQuestionCounter);
+        } else {
+          return showPreparingPage();
+        }
       }
-    }
+
   }
 } // nextQuestion function ends here
 
