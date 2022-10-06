@@ -1232,9 +1232,12 @@ async function askQuestion(totalQuizQuestions, counter, fromBack) {
 
     ques.answers.forEach((val, index) => {
       if (val.answer) {
+        // call checkalergie
+        checkAllergie(val.answer);
         $("#typeSelection .answerInner").append(`
           <div class="selectionOptions">
             <button data-val="${val.answer}" data-id="${val.id}" class="selectionBtns selectionBtn" >${val.answer}</button>
+            <button data-val="${val.answer}" data-id="${val.id}" class="selectionBtns selectionBtn" onclick="handleNoneOfTheAbove()">None of the Above</button>
           </div>
         `);
       }
@@ -1824,4 +1827,9 @@ function handleNoneOfTheAbove() {
 
 function handleImageMissing(self) {
   $(self).addClass("image-missing");
+}
+
+
+async function checkAllergie(event){
+
 }
