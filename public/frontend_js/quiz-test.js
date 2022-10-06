@@ -1831,5 +1831,6 @@ function handleImageMissing(self) {
 
 
 async function checkAllergie(event){
-
+  // fucntion to check alegies
+  // implemenattion
 }
