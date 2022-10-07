@@ -651,7 +651,7 @@ const setAsyncTimeout = (cb, timeout = 0) => new Promise(resolve => {
 
 // function to call all the questions
 async function nextQuestion(goBack, goBackFromResponse, fromDependedOn) {
-  setAsyncTimeout(nextQuestion, closeResponseTimeoutCounter);
+//   setAsyncTimeout(nextQuestion, closeResponseTimeoutCounter);
   // await sleep(500)
   // async () => {
   //   setTimeout(()=> {
@@ -1830,7 +1830,19 @@ function handleImageMissing(self) {
 }
 
 
+async function terminateQuiz() {
+  
+}
+
 async function checkAllergie(event){
   // fucntion to check alegies
   // implemenattion
+  let value = event.dataset.value;
+  var data = ["Banana", "Olive", "Sunflowers"];
+  for(var i in data ){
+    if(data[i] == value){
+      terminateQuiz();
+    }
+  }
+  // check for val
 }
